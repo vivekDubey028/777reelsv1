@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Slot Machine Game</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #000080;
+    }
+    #slotCanvas {
+      display: block;
+    }
+    #audioControls {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      z-index: 100;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="slotCanvas"></canvas>
+  <div id="audioControls">
+    <audio id="spinSound" src="sounds/audiomass-output.mp3" preload="auto"></audio>
+    <audio id="winSound" src="sounds/you-win-sequence-3-183950.mp3" preload="auto"></audio>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('slotCanvas');
+    const ctx = canvas.getContext('2d');
+    const spinSound = document.getElementById('spinSound');
+    const winSound = document.getElementById('winSound');
+
+    // Load images
+    const headerImg = new Image();
+    headerImg.crossOrigin = "Anonymous";
+    headerImg.src = 'public/header.jpg';
+
+    const footerImg = new Image();
+    footerImg.crossOrigin = "Anonymous";
+    footerImg.src = 'public/WhatsApp Image 2025-06-25 at 22.26.31_b127b430.jpg';
+
+    const gridImg = new Image();
+    gridImg.crossOrigin = "Anonymous";
+    gridImg.src = 'public/grid.png';
+
+    const blueSeven = new Image();
+    blueSeven.src = 'public/blue7-removebg-preview.png';
+    const redSeven = new Image();
+    redSeven.src = 'public/red7-removebg-preview.png';
+    const whiteSeven = new Image();
+    whiteSeven.src = 'public/white7-removebg-preview.png';
+    const appleImg = new Image();
+    appleImg.src = 'public/apple-removebg-preview.png';
+    const orangeImg = new Image();
+    orangeImg.src = 'public/orange-removebg-preview.png';
+    const bellImg = new Image();
+    bellImg.src = 'public/bell-removebg-preview.png';
+
+    // Loading flags
+    let isHeaderLoaded = false;
+    let isFooterLoaded = false;
+    let isGridLoaded = false;
+    let isBlueSevenLoaded = false;
+    let isRedSevenLoaded = false;
+    let isWhiteSevenLoaded = false;
+    let isAppleLoaded = false;
+    let isOrangeLoaded = false;
+    let isBellLoaded = false;
+
+    // Image load handlers
+    headerImg.onload = () => { isHeaderLoaded = true; initializeCanvas(); };
+    headerImg.onerror = () => { isHeaderLoaded = false; initializeCanvas(); };
+    footerImg.onload = () => { isFooterLoaded = true; initializeCanvas(); };
+    footerImg.onerror = () => { isFooterLoaded = false; initializeCanvas(); };
+    gridImg.onload = () => { isGridLoaded = true; initializeCanvas(); };
+    gridImg.onerror = () => { isGridLoaded = false; initializeCanvas(); };
+    blueSeven.onload = () => { isBlueSevenLoaded = true; initializeCanvas(); };
+    blueSeven.onerror = () => { isBlueSevenLoaded = false; initializeCanvas(); };
+    redSeven.onload = () => { isRedSevenLoaded = true; initializeCanvas(); };
+    redSeven.onerror = () => { isRedSevenLoaded = false; initializeCanvas(); };
+    whiteSeven.onload = () => { isWhiteSevenLoaded = true; initializeCanvas(); };
+    whiteSeven.onerror = () => { isWhiteSevenLoaded = false; initializeCanvas(); };
+    appleImg.onload = () => { isAppleLoaded = true; initializeCanvas(); };
+    appleImg.onerror = () => { isAppleLoaded = false; initializeCanvas(); };
+    orangeImg.onload = () => { isOrangeLoaded = true; initializeCanvas(); };
+    orangeImg.onerror = () => { isOrangeLoaded = false; initializeCanvas(); };
+    bellImg.onload = () => { isBellLoaded = true; initializeCanvas(); };
+    bellImg.onerror = () => { isBellLoaded = false; initializeCanvas(); };
+
+    let linePlay = 0.25;
+    let totalPlay = 2.00;
+    let balance = 99.65;
+    let win = 0.00;
+    const lines = 8;
+    let fastSpinning = false;
+    let fastInterval = null;
+    let isSpinning = false;
+    let spinAnimationId = null;
+    const spinDuration = 3000; // 3 seconds spin duration
+    let spinStartTime = 0;
+    const images = [blueSeven, redSeven, whiteSeven, appleImg, orangeImg, bellImg];
+
+    let currentGrid = [
+      { img: blueSeven, x: 0, y: 0, xOffset: 0, yOffset: 0 },
+      { img: redSeven, x: 1, y: 0, xOffset: 0, yOffset: 0 },
+      { img: whiteSeven, x: 2, y: 0, xOffset: 0, yOffset: 0 },
+      { img: appleImg, x: 0, y: 1, xOffset: 0, yOffset: 0 },
+      { img: orangeImg, x: 1, y: 1, xOffset: 0, yOffset: 0 },
+      { img: bellImg, x: 2, y: 1, xOffset: 0, yOffset: 0 },
+      { img: blueSeven, x: 0, y: 2, xOffset: 0, yOffset: 0 },
+      { img: redSeven, x: 1, y: 2, xOffset: 0, yOffset: 0 },
+      { img: whiteSeven, x: 2, y: 2, xOffset: 0, yOffset: 0 }
+    ];
+
+    function initializeCanvas() {
+      const ratio = window.devicePixelRatio || 1;
+      canvas.width = window.innerWidth * ratio;
+      canvas.height = window.innerHeight * ratio;
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+      ctx.resetTransform();
+      ctx.scale(ratio, ratio);
+      drawAll();
+      window.addEventListener('resize', debounce(resizeCanvas, 100));
+      canvas.addEventListener('click', handleClick);
+    }
+
+    function resizeCanvas() {
+      const ratio = window.devicePixelRatio || 1;
+      canvas.width = window.innerWidth * ratio;
+      canvas.height = window.innerHeight * ratio;
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+      drawAll();
+    }
+
+    function debounce(func, wait) {
+      let timeout;
+      return function (...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+      };
+    }
+
+    function drawHeader() {
+      const headerHeight = canvas.height * 0.15 / ctx.getTransform().d;
+      const headerY = 0;
+      if (isHeaderLoaded && headerImg.complete && headerImg.naturalWidth > 0) {
+        ctx.drawImage(headerImg, 0, headerY, canvas.width / ctx.getTransform().a, headerHeight);
+      } else {
+        ctx.fillStyle = '#FF0000';
+        ctx.fillRect(0, headerY*0.1, canvas.width / ctx.getTransform().a, headerHeight);
+      }
+      ctx.fillStyle = '#FFD700';
+      ctx.font = `${headerHeight * 0.3}px "Press Start 2P"`;
+      ctx.textAlign = 'center';
+      ctx.fillText('10000', canvas.width / ctx.getTransform().a * 0.53, headerHeight * 0.7);
+      ctx.fillText(balance.toFixed(2), canvas.width / ctx.getTransform().a * 0.1, headerHeight * 0.7);
+    }
+
+    function drawGrid() {
+      const headerHeight = canvas.height * 0.15 / ctx.getTransform().d;
+      const footerHeight = canvas.height * 0.15 / ctx.getTransform().d;
+      const availableHeight = canvas.height / ctx.getTransform().d - headerHeight - footerHeight;
+      const gridY = headerHeight * 1.8;
+      const gridSize = Math.min(availableHeight * 1.5, canvas.width / ctx.getTransform().a) * 0.8;
+      const cellSize = gridSize / 3;
+      const gridX = (canvas.width / ctx.getTransform().a - gridSize) / 2;
+
+      // Draw grid background
+      if (isGridLoaded && gridImg.complete && gridImg.naturalWidth > 0) {
+        const aspectRatio = gridImg.width / gridImg.height;
+        const imgWidth = gridSize;
+        const imgHeight = gridSize / aspectRatio;
+        ctx.drawImage(gridImg, gridX, gridY, imgWidth, imgHeight);
+      } else {
+        ctx.fillStyle = '#FF0000';
+        ctx.fillRect(gridX, gridY, gridSize, gridSize);
+      }
+
+      // Draw symbols with reduced gaps
+      const symbolScale = 0.75;
+      const symbolOffset = (cellSize - (cellSize * symbolScale)) / 2;
+      const gapReduction = cellSize * 0.1;
+
+      currentGrid.forEach(comp => {
+        const x = gridX + comp.x * cellSize + symbolOffset - (gapReduction * comp.x * 0.6);
+        const y = gridY + comp.y * cellSize + symbolOffset - (gapReduction * comp.y * 3.8);
+        const size = cellSize * symbolScale/1.4;
+
+        if (comp.img.complete && comp.img.naturalWidth > 0) {
+          ctx.drawImage(comp.img, x, y, size, size);
+        } else {
+          ctx.fillStyle = '#FF0000';
+          ctx.fillRect(x, y, size, size);
+        }
+      });
+    }
+
+    function drawFooter() {
+      const footerHeight = canvas.height * 0.15 / ctx.getTransform().d;
+      const footerY = canvas.height / ctx.getTransform().d - footerHeight;
+      if (isFooterLoaded && footerImg.complete && footerImg.naturalWidth > 0) {
+        ctx.drawImage(footerImg, 0, footerY, canvas.width / ctx.getTransform().a, footerHeight);
+      } else {
+        ctx.fillStyle = '#FF0000';
+        ctx.fillRect(0, footerY, canvas.width / ctx.getTransform().a, footerHeight);
+      }
+    }
+
+    function drawInteractiveAreas() {
+      const footerHeight = canvas.height * 0.15 / ctx.getTransform().d;
+      const footerY = canvas.height / ctx.getTransform().d - footerHeight;
+      const btnSize = footerHeight * 0.6;
+      const ctrlY = footerY + (footerHeight - btnSize) * 0.5;
+      const infoX = canvas.width * 0.003 / ctx.getTransform().a;
+      const linesX = canvas.width * 0.11 / ctx.getTransform().a;
+      const linePlayX = canvas.width * 0.19 / ctx.getTransform().a;
+      const totalPlayX = canvas.width * 0.29 / ctx.getTransform().a;
+      const winX = canvas.width * 0.45 / ctx.getTransform().a;
+      const fastX = canvas.width * 0.61 / ctx.getTransform().a;
+      const spinX = canvas.width * 0.77 / ctx.getTransform().a;
+
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'center';
+
+      function drawArea(x, y, width, height) {
+        ctx.fillStyle = 'transparent';
+        ctx.fillRect(x, y, width, height);
+      }
+
+      drawArea(infoX, ctrlY, btnSize * 1.5, btnSize);
+      drawArea(linesX, ctrlY, btnSize * 1.8, btnSize);
+      ctx.fillStyle = '#FFD700';
+      ctx.font = `${btnSize * 0.35}px Arial`;
+      ctx.fillText(lines, linesX * 0.1 + (btnSize * 1.8) / 2, ctrlY + btnSize * 0.5);
+      drawArea(linePlayX, ctrlY, btnSize * 1.8, btnSize);
+      ctx.fillStyle = '#FFD700';
+      ctx.font = `${btnSize * 0.35}px Arial`;
+      ctx.fillText(linePlay.toFixed(2), linePlayX * 1.2 + (btnSize * 1.8) / 2, ctrlY + btnSize * 0.5);
+      drawArea(totalPlayX, ctrlY, btnSize * 1.8, btnSize);
+      ctx.fillStyle = '#FFD700';
+      ctx.font = `${btnSize * 0.35}px Arial`;
+      ctx.fillText(totalPlay.toFixed(1), totalPlayX * 0.78 + (btnSize * 1.8) / 2, ctrlY * 1.056 + btnSize * 0.5);
+      ctx.fillStyle = '#FFD700';
+      ctx.font = `${btnSize * 0.5}px "Press Start 2P"`;
+      ctx.fillText(win.toFixed(2), winX + (btnSize * 2.5) / 2, ctrlY + btnSize / 2);
+      drawArea(winX, ctrlY, btnSize * 2.5, btnSize);
+      drawArea(fastX, ctrlY, btnSize * 1.5, btnSize);
+      drawArea(spinX, ctrlY, btnSize * 2.5, btnSize);
+
+      return { infoX, linesX, linePlayX, totalPlayX, winX, fastX, spinX, ctrlY, size: btnSize };
+    }
+
+    let areas = null;
+    function drawAll() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawHeader();
+      drawGrid();
+      drawFooter();
+      areas = drawInteractiveAreas();
+    }
+
+    function getRandomImage() {
+      return images[Math.floor(Math.random() * images.length)];
+    }
+
+    function animateSpin(timestamp) {
+      if (!spinStartTime) spinStartTime = timestamp;
+      const progress = timestamp - spinStartTime;
+      
+      // Update symbols randomly during spin
+      if (progress < spinDuration) {
+        currentGrid = currentGrid.map(symbol => {
+          return {
+            ...symbol,
+            img: getRandomImage()
+          };
+        });
+        drawAll();
+        spinAnimationId = requestAnimationFrame(animateSpin);
+      } else {
+        // Spin complete
+        finishSpin();
+      }
+    }
+
+    function finishSpin() {
+      cancelAnimationFrame(spinAnimationId);
+      isSpinning = false;
+      spinSound.pause();
+      spinSound.currentTime = 0;
+      
+      // Set final symbols
+      currentGrid = [
+        { img: getRandomImage(), x: 0, y: 0, xOffset: 0, yOffset: 0 },
+        { img: getRandomImage(), x: 1, y: 0, xOffset: 0, yOffset: 0 },
+        { img: getRandomImage(), x: 2, y: 0, xOffset: 0, yOffset: 0 },
+        { img: getRandomImage(), x: 0, y: 1, xOffset: 0, yOffset: 0 },
+        { img: getRandomImage(), x: 1, y: 1, xOffset: 0, yOffset: 0 },
+        { img: getRandomImage(), x: 2, y: 1, xOffset: 0, yOffset: 0 },
+        { img: getRandomImage(), x: 0, y: 2, xOffset: 0, yOffset: 0 },
+        { img: getRandomImage(), x: 1, y: 2, xOffset: 0, yOffset: 0 },
+        { img: getRandomImage(), x: 2, y: 2, xOffset: 0, yOffset: 0 }
+      ];
+      
+      const newWin = Math.random() < 0.3 ? parseFloat((Math.random() * 5).toFixed(2)) : 0;
+      win = newWin;
+      balance += win;
+      drawAll();
+      
+      if (win > 0) {
+        winSound.play();
+        alert(`🎉 You won $${win}!`);
+      } else {
+        alert(`💨 No win. Try again!`);
+      }
+    }
+
+    function handleClick(event) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const x = (event.clientX - rect.left) * scaleX;
+      const y = (event.clientY - rect.top) * scaleY;
+
+      if (areas && !isSpinning) {
+        const size = areas.size;
+        const ctrlY = areas.ctrlY;
+
+        if (x >= areas.spinX && x <= areas.spinX + size * 2.5 &&
+            y >= ctrlY && y <= ctrlY + size) {
+          handleSpin();
+        } else if (x >= areas.fastX && x <= areas.fastX + size * 1.5 &&
+                   y >= ctrlY && y <= ctrlY + size) {
+          handleFastSpin();
+        } else if (x >= areas.infoX && x <= areas.infoX + size * 1.5 &&
+                   y >= ctrlY && y <= ctrlY + size) {
+          alert(`Game Info:\n- Lines: ${lines}\n- Line Play: $${linePlay}\n- Total Play: $${totalPlay}\n- Balance: $${balance.toFixed(2)}\n- Win: $${win.toFixed(2)}`);
+        }
+      }
+    }
+
+    function handleSpin() {
+      if (balance >= totalPlay && !isSpinning) {
+        balance -= totalPlay;
+        isSpinning = true;
+        spinStartTime = 0;
+        spinSound.play();
+        spinAnimationId = requestAnimationFrame(animateSpin);
+      } else if (isSpinning) {
+        alert(`❌ Spin already in progress!`);
+      } else {
+        alert(`❌ Not enough balance to spin!`);
+      }
+    }
+
+    function handleFastSpin() {
+      if (balance >= totalPlay && !fastSpinning && !isSpinning) {
+        fastSpinning = true;
+        fastInterval = setInterval(() => {
+          if (balance >= totalPlay) {
+            handleSpin();
+          } else {
+            clearInterval(fastInterval);
+            fastSpinning = false;
+            alert(`❌ Not enough balance for fast spins!`);
+          }
+        }, 2000); // Spin every 2 seconds for fast spin
+      } else if (fastSpinning) {
+        alert(`❌ Fast spin already in progress!`);
+      } else if (isSpinning) {
+        alert(`❌ Regular spin in progress!`);
+      } else {
+        alert(`❌ Not enough balance to start fast spins!`);
+      }
+    }
+  </script>
+</body>
+</html>
