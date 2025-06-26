@@ -35,7 +35,7 @@
       position: absolute;
       width: 40px;
       height: 40px;
-      background-color: hidden;
+      background-color: transparent;
       border-radius: 50%;
       text-align: center;
       line-height: 40px;
@@ -44,12 +44,12 @@
       cursor: pointer;
       user-select: none;
       z-index: 20;
-      color:transparent;
-      border: 2px hidden;
-      box-shadow: 0 0 5px hidden;
+      color: transparent;
+      border: 2px solid transparent;
+      box-shadow: none;
     }
     .bet-control:hover {
-      background-color:hidden;
+      background-color: transparent;
     }
     .bet-control:active {
       transform: scale(0.95);
@@ -64,18 +64,24 @@
       padding: 20px;
       color: white;
       z-index: 100;
-      max-width: 80%;
+      max-width: 90%;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
       display: none;
+      box-sizing: border-box;
     }
     #paytable h2 {
       color: gold;
       text-align: center;
       margin-bottom: 15px;
+      font-size: 1.5rem;
     }
     #paytable table {
       width: 100%;
       border-collapse: collapse;
       margin-bottom: 15px;
+      font-size: 0.8rem;
     }
     #paytable th, #paytable td {
       border: 1px solid gold;
@@ -84,6 +90,10 @@
     }
     #paytable th {
       background-color: rgba(255, 215, 0, 0.2);
+    }
+    #paytable img {
+      height: 30px;
+      max-width: 100%;
     }
     #closePaytable {
       background-color: gold;
@@ -94,6 +104,7 @@
       cursor: pointer;
       display: block;
       margin: 0 auto;
+      font-size: 0.8rem;
     }
     #loadingScreen {
       position: fixed;
@@ -113,6 +124,21 @@
       font-size: 24px;
       margin-top: 20px;
     }
+    
+    @media (max-width: 768px) {
+      #paytable {
+        padding: 10px;
+      }
+      #paytable h2 {
+        font-size: 1.2rem;
+      }
+      #paytable table {
+        font-size: 0.7rem;
+      }
+      #paytable img {
+        height: 20px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -122,9 +148,9 @@
   
   <canvas id="slotCanvas"></canvas>
   <div id="audioControls">
-    <audio id="spinSound" src="public/sounds/audiomass-output.mp3" preload="auto"></audio>
-    <audio id="winSound" src="public/sounds\win.mp3" preload="auto"></audio>
-    <audio id="coinSound" src="public/sounds/slot-machine-payout-81725.mp3" preload="auto"></audio>
+    <audio id="spinSound" preload="auto"></audio>
+    <audio id="winSound" preload="auto"></audio>
+    <audio id="coinSound" preload="auto"></audio>
   </div>
 
   <div id="paytable">
@@ -136,32 +162,32 @@
         <th>3 Symbols</th>
       </tr>
       <tr>
-        <td><img src="public/blue7-removebg-preview.png" style="height:30px;"></td>
+        <td><img src="public/blue7-removebg-preview.png"></td>
         <td>5x Line Bet</td>
         <td>30x Line Bet</td>
       </tr>
       <tr>
-        <td><img src="public/red7-removebg-preview.png" style="height:30px;"></td>
+        <td><img src="public/red7-removebg-preview.png"></td>
         <td>3x Line Bet</td>
         <td>15x Line Bet</td>
       </tr>
       <tr>
-        <td><img src="public/white7-removebg-preview.png" style="height:30px;"></td>
+        <td><img src="public/white7-removebg-preview.png"></td>
         <td>2x Line Bet</td>
         <td>8x Line Bet</td>
       </tr>
       <tr>
-        <td><img src="public/bell-removebg-preview.png" style="height:30px;"></td>
+        <td><img src="public/bell-removebg-preview.png"></td>
         <td>1x Line Bet</td>
         <td>4x Line Bet</td>
       </tr>
       <tr>
-        <td><img src="public/orange-removebg-preview.png" style="height:30px;"></td>
+        <td><img src="public/orange-removebg-preview.png"></td>
         <td>0.5x Line Bet</td>
         <td>2x Line Bet</td>
       </tr>
       <tr>
-        <td><img src="public/apple-removebg-preview.png" style="height:30px;"></td>
+        <td><img src="public/apple-removebg-preview.png"></td>
         <td>0.2x Line Bet</td>
         <td>1x Line Bet</td>
       </tr>
@@ -216,6 +242,29 @@
     const paytable = document.getElementById('paytable');
     const closePaytable = document.getElementById('closePaytable');
 
+    // Configure audio elements
+    spinSound.src = 'public/sounds/audiomass-output.mp3';
+    winSound.src = 'public/sounds/win.mp3';
+    coinSound.src = 'public/sounds/slot-machine-payout-81725.mp3';
+    
+    // Ensure audio can play through even if tab is not active
+    spinSound.loop = false;
+    winSound.loop = false;
+    coinSound.loop = false;
+    
+    // Fix for iOS audio issues
+    function enableAudio() {
+      const playPromise = spinSound.play();
+      if (playPromise !== undefined) {
+        playPromise.then(_ => {
+          spinSound.pause();
+          spinSound.currentTime = 0;
+        }).catch(error => {
+          console.log("Audio autoplay prevented:", error);
+        });
+      }
+    }
+    
     // Load images
     const headerImg = new Image();
     headerImg.src = 'public/header.jpg';
@@ -385,10 +434,8 @@
       closePaytable.addEventListener('click', () => paytable.style.display = 'none');
       requestAnimationFrame(updateCoins);
       
-      // Preload sounds
-      spinSound.load();
-      winSound.load();
-      coinSound.load();
+      // Enable audio on first user interaction
+      document.body.addEventListener('click', enableAudio, { once: true });
     }
 
     function resizeCanvas() {
@@ -635,7 +682,10 @@
       }
       if (coinSound) {
         coinSound.currentTime = 0;
-        coinSound.play().catch(e => console.log("Audio play failed:", e));
+        const playPromise = coinSound.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(e => console.log("Coin sound play failed:", e));
+        }
       }
     }
 
@@ -779,7 +829,10 @@
       drawAll();
       
       if (win > 0) {
-        winSound.play().catch(e => console.log("Audio play failed:", e));
+        const playPromise = winSound.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(e => console.log("Win sound play failed:", e));
+        }
         createCoins(win);
         showWinMessage(win);
       }
@@ -819,7 +872,10 @@
         balance -= totalPlay;
         isSpinning = true;
         spinStartTime = 0;
-        spinSound.play().catch(e => console.log("Audio play failed:", e));
+        const playPromise = spinSound.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(e => console.log("Spin sound play failed:", e));
+        }
         spinAnimationId = requestAnimationFrame(animateSpin);
       } else if (isSpinning) {
         console.log('Spin already in progress');
